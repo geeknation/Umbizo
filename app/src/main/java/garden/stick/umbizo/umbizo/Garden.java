@@ -111,18 +111,24 @@ public class Garden extends ActionBarActivity implements
         mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
 
         //connect to the google api client.
+        GservicesConnection();
+
+        //mLocationClient = new LocationClient(this, this, this);
+
+    }
+
+    private synchronized void GservicesConnection(){
         if (mGoogleApiClient == null) {
             mGoogleApiClient = new GoogleApiClient.Builder(this)
                     .addApi(LocationServices.API)
                     .addConnectionCallbacks(this)
                     .addOnConnectionFailedListener(this)
                     .build();
+
+            mGoogleApiClient.connect();
         }
-
-
-        //mLocationClient = new LocationClient(this, this, this);
-
     }
+
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menu_garden, menu);
@@ -152,7 +158,8 @@ public class Garden extends ActionBarActivity implements
     @Override
     protected void onStart() {
         super.onStart();
-        mGoogleApiClient.connect();
+        GservicesConnection();
+
     }
     /**
      * Called when activity gets invisible. Connection to Play Services needs to
@@ -191,7 +198,10 @@ public class Garden extends ActionBarActivity implements
     private void retryConnecting() {
         mIsInResolution = false;
         if (!mGoogleApiClient.isConnecting()) {
-            mGoogleApiClient.connect();
+           GservicesConnection();
+            pullLocation();
+        }else{
+            pullLocation();
         }
     }
 
@@ -204,16 +214,13 @@ public class Garden extends ActionBarActivity implements
         // TODO: Start making API requests.
         mActivityIndicator=(ProgressBar) findViewById(R.id.addressProgress);
         mActivityIndicator.setVisibility(View.VISIBLE);
-        if(isLocationEnabled(getApplicationContext())){
-            pullLocation();
-        }else{
-            GPSSettingsDialog();
-        }
+        pullLocation();
 
     }
 
     @Override
     public void onDisconnected() {
+        retryConnecting();
 
     }
     /**
@@ -260,22 +267,33 @@ public class Garden extends ActionBarActivity implements
     //pull users location from the Google Services API Client
     public void pullLocation(){
         LocationManager service=(LocationManager) getSystemService(LOCATION_SERVICE);
-        if(servicesConnected()) {
-            Location currentLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-            LocationServices.FusedLocationApi.requestLocationUpdates(
-                    mGoogleApiClient, mLocationRequest, new com.google.android.gms.location.LocationListener() {
-                        @Override
-                        public void onLocationChanged(Location location) {
-                            setLocation(location);
-                        }
-                    });
 
+        if(isLocationEnabled(getApplicationContext())){
+            if(servicesConnected()) {
+                Location currentLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+                LocationServices.FusedLocationApi.requestLocationUpdates(
+                        mGoogleApiClient, mLocationRequest, new com.google.android.gms.location.LocationListener() {
+                            @Override
+                            public void onLocationChanged(Location location) {
+                                setLocation(location);
+                            }
+                        });
 
-            setLocation(currentLocation);
+                String coords=getLatLng(getApplicationContext(),currentLocation);
 
+                new GetPeddlers().execute(coords);
+                //setLocation(currentLocation);
+
+            }else{
+                Log.i("Play Services","not available");
+            }
         }else{
-            Log.i("Play Services","not available");
+            GPSSettingsDialog();
         }
+
+
+
+
     }
 
 
@@ -349,7 +367,7 @@ public class Garden extends ActionBarActivity implements
     public void GPSSettingsDialog() {
         AlertDialog.Builder builder;
         builder = new AlertDialog.Builder(this);
-        builder.setMessage("Please Enable GPS on your device")
+        builder.setMessage("Click Okay to enable Location Services on your device")
                 .setPositiveButton("Okay", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
                         Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
@@ -409,6 +427,7 @@ public class Garden extends ActionBarActivity implements
              * android.location.Geocoder, but other geocoders that conform to address standards
              * can also be used.
              */
+
             Geocoder geocoder = new Geocoder(localContext, Locale.getDefault());
 
             // Get the current location from the input parameter list
@@ -424,7 +443,13 @@ public class Garden extends ActionBarActivity implements
                  * Call the synchronous getFromLocation() method with the latitude and
                  * longitude of the current location. Return at most 1 address.
                  */
-                addresses = geocoder.getFromLocation(location.getLatitude(),location.getLongitude(), 1);
+                if(geocoder!=null){
+                    addresses = geocoder.getFromLocation(location.getLatitude(),location.getLongitude(), 1);
+                }else{
+                    retryConnecting();
+                    pullLocation();
+                }
+
 
                 // Catch network or other I/O problems.
             } catch (IOException exception1) {
@@ -452,6 +477,9 @@ public class Garden extends ActionBarActivity implements
                 exception2.printStackTrace();
                 //
                 return errorString;
+            } catch(RuntimeException KimbiaKataa){
+                Log.i("Run Time Error",KimbiaKataa.getMessage());
+                KimbiaKataa.printStackTrace();
             }
             // If the reverse geocode returned an address
             if (addresses != null && addresses.size() > 0) {
@@ -461,11 +489,8 @@ public class Garden extends ActionBarActivity implements
 
                 // Format the first line of address
                 String addressText = getUserAddress(address);
-
-
                 // Return the text
                 return addressText;
-
                 // If there aren't any addresses, post a message
             } else {
                 return localContext.getString(R.string.no_address_found);
@@ -493,9 +518,9 @@ public class Garden extends ActionBarActivity implements
                     address.getMaxAddressLineIndex() > 0 ?
                             address.getAddressLine(0) : "",
                     // Locality is usually a city
-                    address.getLocality(),
+                    address.getSubLocality(),
                     // The country of the address
-                    address.getCountryName());
+                    address.getLocality());
             return userAddress;
         }
     }
