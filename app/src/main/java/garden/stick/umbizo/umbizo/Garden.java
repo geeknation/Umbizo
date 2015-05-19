@@ -282,7 +282,7 @@ public class Garden extends ActionBarActivity implements
                 String coords=getLatLng(getApplicationContext(),currentLocation);
 
                 new GetPeddlers().execute(coords);
-                //setLocation(currentLocation);
+
 
             }else{
                 Log.i("Play Services","not available");
