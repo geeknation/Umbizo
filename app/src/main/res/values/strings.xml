@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
     <string name="app_name">Umbizo</string>
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
@@ -8,4 +9,6 @@
     <string name="no_address_found">we couldnt find your address.</string>
     <string name="IO_Exception_getFromLocation">Something went wrong fetching your Address</string>
     <string name="illegal_argument_exception">Illegal Action</string>
+    <string name="title_activity_ped_info">Ped Info</string>
+
 </resources>

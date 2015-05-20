@@ -1,6 +1,5 @@
 package garden.stick.umbizo.umbizo;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -15,18 +14,19 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.support.v4.app.Fragment;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
 import android.text.TextUtils;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ListAdapter;
+import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.SimpleAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,7 +38,28 @@ import com.google.android.gms.location.LocationClient;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.utils.URLEncodedUtils;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 
@@ -89,6 +110,10 @@ public class Garden extends ActionBarActivity implements
     public ProgressBar mActivityIndicator;
     private TextView locationView;
 
+    ArrayList<HashMap<String, String>> MY_PEDS_LIST=new ArrayList<HashMap<String, String>>();
+
+
+
 
     /**
      * Called when the activity is starting. Restores the activity state.
@@ -114,6 +139,9 @@ public class Garden extends ActionBarActivity implements
         GservicesConnection();
 
         //mLocationClient = new LocationClient(this, this, this);
+
+
+
 
     }
 
@@ -278,7 +306,6 @@ public class Garden extends ActionBarActivity implements
                                 setLocation(location);
                             }
                         });
-
                 String coords=getLatLng(getApplicationContext(),currentLocation);
 
                 new GetPeddlers().execute(coords);
@@ -526,6 +553,182 @@ public class Garden extends ActionBarActivity implements
     }
 
 
+    /*get peddlers class*/
+
+    private class GetPeddlers extends AsyncTask<String, Void, JSONObject> {
+
+        private String serverURL="http://196.201.216.14/umb/data.json";
+        HttpClient httpclient;
+        InputStream inputStream = null;
+        String result;
+         InputStream is = null;
+         JSONObject jObj = null;
+         String json = "";
+         String PED_NAME="pedName";
+         String LOCATION="location";
+         String COORDS="coords";
+         String PHONE_NUMBER="phoneNumber";
+
+        JSONArray peddlers;
+        ArrayList<HashMap<String, String>> MY_PEDS_LIST=new ArrayList<HashMap<String, String>>();
 
 
+        // make GET request to the given URL
+        HttpResponse httpResponse;
+
+        @Override
+        protected JSONObject doInBackground(String... coords) {
+            JSONObject jsonResult=null;
+            try {
+                jsonResult= fetchPeds(coords[0]);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+            return jsonResult;
+
+        }
+
+        protected void onPostExecute(JSONObject jsonResult){
+//        Log.i("Server response:",jsonResult.toString());
+            try {
+                peddlers=jsonResult.getJSONArray("data");
+                for(int i=0;i<peddlers.length();i++){
+
+                    JSONObject O=peddlers.getJSONObject(i);
+                    String name=O.getString(PED_NAME);
+                    String location=O.getString(COORDS);
+                    String phonenumber=O.getString(PHONE_NUMBER);
+
+
+                    HashMap<String, String> PEDDLER = new HashMap<String, String>();
+
+                    PEDDLER.put(PED_NAME,name);
+                    PEDDLER.put(LOCATION,location);
+                    PEDDLER.put(PHONE_NUMBER,phonenumber);
+
+                    MY_PEDS_LIST.add(PEDDLER);
+                }
+
+                ListAdapter adapter;
+                adapter = new SimpleAdapter(
+                        Garden.this, MY_PEDS_LIST,
+                        R.layout.peds_list, new String[] { PED_NAME, LOCATION,
+                        PHONE_NUMBER }, new int[] { R.id.name,
+                        R.id.location, R.id.mobile });
+
+
+                ListView PEDLIST=(ListView) findViewById(R.id.myPeddlerListView);
+                PEDLIST.setAdapter(adapter);
+                PEDLIST.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                    @Override
+                    public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+
+                        String name=((TextView) findViewById(R.id.name)).getText().toString();
+                        String location=((TextView) findViewById(R.id.location)).getText().toString();
+                        String phone=((TextView) findViewById(R.id.mobile)).getText().toString();
+
+                        Intent pedInfoIntent=new Intent(getApplicationContext(),PedInfo.class);
+
+                        pedInfoIntent.putExtra("PED_NAME",name);
+                        pedInfoIntent.putExtra("PED_LOCATION",location);
+                        pedInfoIntent.putExtra("PED_PHONE",phone);
+                        startActivity(pedInfoIntent);
+                    }
+                });
+
+
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+
+
+        public JSONObject fetchPeds(String coords) throws IOException, JSONException {
+            JSONObject jsonR = new JSONObject();
+            List<NameValuePair> params = new ArrayList<NameValuePair>();
+            params.add(new BasicNameValuePair("user-coords",coords));
+            params.add(new BasicNameValuePair("request","local-peds"));
+            jsonR=makeHttpRequest(serverURL,"GET",params);
+            return jsonR;
+        }
+
+        private String convertInputStreamToString(InputStream inputStream) throws IOException{
+            BufferedReader bufferedReader = new BufferedReader( new InputStreamReader(inputStream));
+            String line = "";
+            String result = "";
+            while((line = bufferedReader.readLine()) != null)
+                result += line;
+
+            inputStream.close();
+            return result;
+
+        }
+
+        public JSONObject makeHttpRequest(String url, String method,List<NameValuePair> params) {
+
+            // Making HTTP request
+            try {
+
+                // check for request method
+                if(method == "POST"){
+                    // request method is POST
+                    // defaultHttpClient
+                    DefaultHttpClient httpClient = new DefaultHttpClient();
+                    HttpPost httpPost = new HttpPost(url);
+
+                    httpPost.setEntity(new UrlEncodedFormEntity(params));
+                    HttpResponse httpResponse = httpClient.execute(httpPost);
+                    HttpEntity httpEntity = httpResponse.getEntity();
+                    is = httpEntity.getContent();
+
+                }else if(method == "GET"){
+                    // request method is GET
+                    DefaultHttpClient httpClient = new DefaultHttpClient();
+                    String paramString = URLEncodedUtils.format(params, "utf-8");
+                    url += "?" + paramString;
+                    HttpGet httpGet = new HttpGet(url);
+                    HttpResponse httpResponse = httpClient.execute(httpGet);
+                    HttpEntity httpEntity = httpResponse.getEntity();
+                    is = httpEntity.getContent();
+                }
+
+
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            } catch (ClientProtocolException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            try {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is, "iso-8859-1"), 8);
+                StringBuilder sb = new StringBuilder();
+                String line = null;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line + "\n");
+                }
+                is.close();
+                json = sb.toString();
+                Log.i("json",json);
+
+            } catch (Exception e) {
+                Log.e("Buffer Error", "Error converting result " + e.toString());
+            }
+
+            // try parse the string to a JSON object
+            try {
+                jObj = new JSONObject(json);
+            } catch (JSONException e) {
+                Log.e("JSON Parser", "Error parsing data " + e.toString());
+            }
+
+            // return JSON String
+            return jObj;
+
+        }
+    }
 }
