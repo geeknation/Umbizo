@@ -36,12 +36,14 @@ The ACCESS_COARSE/FINE_LOCATION permissions are not required to use
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name="garden.stick.umbizo.umbizo.PedInfo"
-            android:logo="@drawable/ic_launcher"
-            android:label="@string/title_activity_ped_info" >
-
+            android:label="@string/title_activity_ped_info"
+            android:logo="@drawable/ic_launcher" >
+        </activity>
+        <activity
+            android:name="garden.stick.umbizo.umbizo.CreatePedaccountActivity"
+            android:label="@string/title_activity_create_pedaccount" >
         </activity>
     </application>
 

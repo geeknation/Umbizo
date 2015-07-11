@@ -23,6 +23,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.Button;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.ProgressBar;
@@ -109,6 +110,7 @@ public class Garden extends ActionBarActivity implements
     private Location mLastLocation;
     public ProgressBar mActivityIndicator;
     private TextView locationView;
+    private Button btnCreateAccount;
 
     ArrayList<HashMap<String, String>> MY_PEDS_LIST=new ArrayList<HashMap<String, String>>();
 
@@ -140,7 +142,16 @@ public class Garden extends ActionBarActivity implements
 
         //mLocationClient = new LocationClient(this, this, this);
 
+        btnCreateAccount=(Button) findViewById(R.id.btncreateAccount);
 
+        btnCreateAccount.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent createAccount=new Intent(getApplicationContext(),CreatePedaccountActivity.class);
+
+                startActivity(createAccount);
+            }
+        });
 
 
     }
@@ -632,6 +643,10 @@ public class Garden extends ActionBarActivity implements
                         String phone=((TextView) findViewById(R.id.mobile)).getText().toString();
 
                         Intent pedInfoIntent=new Intent(getApplicationContext(),PedInfo.class);
+
+                        pedInfoIntent.removeExtra("PED_NAME");
+                        pedInfoIntent.removeExtra("PED_LOCATION");
+                        pedInfoIntent.removeExtra("PED_PHONE");
 
                         pedInfoIntent.putExtra("PED_NAME",name);
                         pedInfoIntent.putExtra("PED_LOCATION",location);
